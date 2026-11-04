@@ -261,6 +261,6 @@ function animate(time){requestAnimationFrame(animate);const t=time*.001;
 requestAnimationFrame(animate);loading.remove();
 
 const helpCard=document.querySelector('#help-card'),helpToggle=document.querySelector('#help-toggle');
-function setHelp(open){helpCard.hidden=!open;helpToggle.setAttribute('aria-expanded',String(open));helpToggle.querySelector('span').textContent=open?'−':'＋';}
+function setHelp(open){helpCard.hidden=!open;helpToggle.setAttribute('aria-expanded',String(open));helpToggle.setAttribute('aria-label',open?'關閉操作指南':'開啟操作指南');}
 helpToggle.addEventListener('click',()=>setHelp(helpCard.hidden));
 document.querySelector('#help-close').addEventListener('click',()=>setHelp(false));
