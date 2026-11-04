@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6f1">
+  <meta name="description" content="一座收藏二十七本漂浮素描簿的線上插畫圖書館。">
+  <title>紙間 — 線上插畫圖書館</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/main.css">
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+  </script>
+  <script type="module" src="./scripts/main.js"></script>
+</head>
+<body>
+  <main class="gallery" aria-label="紙間插畫圖書館展間">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="紙間首頁"><span class="brand-mark">紙</span><span>紙間 <small>ILLUSTRATION LIBRARY</small></span></a>
+      <div class="edition">VIRTUAL ROOM <span>／</span> 001</div>
+      <button class="help-toggle" id="help-toggle" aria-expanded="false" aria-controls="help-card">操作指南 <span>＋</span></button>
+    </header>
+
+    <section class="intro" aria-label="展間介紹">
+      <p class="eyebrow">A SMALL LIBRARY IN THE CLOUD</p>
+      <h1>把靈感，<span>翻開來。</span></h1>
+      <p class="intro-copy">二十七本還在呼吸的素描簿，等你靠近。</p>
+    </section>
+
+    <div class="room-label"><span class="room-dot"></span> THE FLOATING ARCHIVE <span class="room-count">27 VOLUMES</span></div>
+    <div id="scene" class="scene" aria-label="漂浮素描簿展間。拖曳移動，點擊素描簿查看介紹。">
+      <div class="loading" id="loading">正在打開圖書館…</div>
+    </div>
+    <div class="hand-note note-left" aria-hidden="true">慢慢逛，<br>每本都有故事。</div>
+    <div class="hand-arrow" aria-hidden="true">↗</div>
+
+    <footer class="bottom-bar">
+      <div class="legend"><span class="legend-key">01—27</span><span>漂浮素描簿</span></div>
+      <div class="drag-hint"><span class="mouse-icon">↔</span> 按住左鍵拖曳空間</div>
+      <div class="footer-note">AN OPEN SKETCHBOOK, ALWAYS.</div>
+    </footer>
+
+    <aside class="help-card" id="help-card" hidden>
+      <button class="help-close" id="help-close" aria-label="關閉操作指南">×</button>
+      <p class="eyebrow">A LITTLE GUIDE</p>
+      <h2>怎麼逛這裡？</h2>
+      <p><span class="guide-icon">↖</span> <b>移動空間</b><br>按住滑鼠左鍵，拖曳展間。</p>
+      <p><span class="guide-icon">◎</span> <b>翻開一本</b><br>點擊素描簿，閱讀它的故事。</p>
+      <p><span class="guide-icon">⤢</span> <b>回到展間</b><br>按右上角 × 或按 Esc 關閉介紹。</p>
+      <div class="guide-doodle">慢慢看就好　✳</div>
+    </aside>
+
+    <section class="detail" id="detail" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+      <button class="detail-close" id="detail-close" aria-label="關閉作品介紹">×</button>
+      <div class="detail-meta"><span class="detail-index" id="detail-index">NO. 01</span><span class="detail-tag">SKETCHBOOK</span></div>
+      <div class="detail-rule"></div>
+      <p class="detail-overline">A NOTE FROM THE ARCHIVE</p>
+      <h2 id="detail-title">午後的窗邊</h2>
+      <p class="detail-description" id="detail-description"></p>
+      <div class="detail-bottom"><span>紙間收藏・2026</span><span class="detail-star">✳</span></div>
+    </section>
+    <div class="grain" aria-hidden="true"></div>
+  </main>
+</body>
+</html>
