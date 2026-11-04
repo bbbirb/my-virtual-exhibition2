@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const sceneRoot = document.querySelector('#scene');
 const loading = document.querySelector('#loading');
@@ -9,49 +10,36 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 sceneRoot.appendChild(renderer.domElement);
 
-// A softly lit sheet with fine grain and paired crease highlights/shadows.
-function makeWrinkledPaper() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 1200;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#f2f1ed'; ctx.fillRect(0, 0, 1200, 1200);
-  for (let i = 0; i < 28; i++) {
-    const x = Math.random() * 1200, y = Math.random() * 1200, r = 100 + Math.random() * 440;
-    const glow = ctx.createRadialGradient(x, y, 5, x, y, r);
-    glow.addColorStop(0, Math.random() > .5 ? 'rgba(255,255,255,.52)' : 'rgba(177,172,160,.10)');
-    glow.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = glow; ctx.fillRect(x-r, y-r, r*2, r*2);
-  }
-  // Creases catch light on one edge and fall into a faint soft shadow on the other.
-  for (let i = 0; i < 150; i++) {
-    const x = Math.random()*1200, y = Math.random()*1200, span = 120 + Math.random()*480;
-    const drift = (Math.random()-.5)*230, bend = (Math.random()-.5)*170;
-    ctx.beginPath(); ctx.moveTo(x, y);
-    ctx.bezierCurveTo(x+drift, y+span*.25, x+drift+bend, y+span*.72, x+drift*.45, y+span);
-    ctx.lineWidth = 2 + Math.random()*8; ctx.strokeStyle = 'rgba(128,124,116,.035)'; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x+2, y-1);
-    ctx.bezierCurveTo(x+drift+2, y+span*.25-1, x+drift+bend+2, y+span*.72-1, x+drift*.45+2, y+span-1);
-    ctx.lineWidth = 1 + Math.random()*4; ctx.strokeStyle = 'rgba(255,255,255,.20)'; ctx.stroke();
-  }
-  for (let i=0;i<18000;i++) {
-    const shade = Math.random() > .52 ? '255,255,255' : '117,111,101';
-    ctx.fillStyle = `rgba(${shade},${Math.random()*.07})`;
-    ctx.fillRect(Math.random()*1200, Math.random()*1200, 1+Math.random()*2, 1);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  scene.background = texture;
-}
-makeWrinkledPaper();
+// Photographic paper backdrop, stored locally so GitHub Pages needs no runtime image service.
+scene.background = new THREE.Color('#eeede9');
+const paperTexture = new THREE.TextureLoader().load('./assets/paper-crumpled-unsplash.jpg');
+paperTexture.colorSpace = THREE.SRGBColorSpace;
+paperTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({map:paperTexture,roughness:1,metalness:0}));
+backdrop.position.z = -5;
+backdrop.receiveShadow = true;
+scene.add(backdrop);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.7));
-const keyLight = new THREE.DirectionalLight(0xfff8eb, 3.1);
-keyLight.position.set(-9, 12, 18); scene.add(keyLight);
-const fillLight = new THREE.DirectionalLight(0xffffff, 1.15);
-fillLight.position.set(10, -7, 13); scene.add(fillLight);
+// Studio reflections give the coated wire and paper edges believable highlights.
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+pmrem.dispose();
+scene.add(new THREE.HemisphereLight(0xf7f4ee, 0x77736c, 1.05));
+const keyLight = new THREE.DirectionalLight(0xfff8ee, 3.2);
+keyLight.position.set(-8, 11, 13); keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -17; keyLight.shadow.camera.right = 17;
+keyLight.shadow.camera.top = 12; keyLight.shadow.camera.bottom = -12;
+keyLight.shadow.camera.near = .5; keyLight.shadow.camera.far = 40;
+keyLight.shadow.bias = -.00045; keyLight.shadow.normalBias = .025;
+keyLight.target.position.set(0,0,-4); scene.add(keyLight,keyLight.target);
+const fillLight = new THREE.DirectionalLight(0xffffff, .8);
+fillLight.position.set(10, -6, 12); scene.add(fillLight);
 
 const titles = [
   '午後的窗邊','雨天散步','一顆橘子','海風的形狀','植物觀察簿','星期日的市場','房間裡的光','給陌生人的花','小島地圖',
@@ -73,12 +61,50 @@ const descriptions = [
 const books = [];
 const pickTargets = [];
 const bookW = 2.06, bookH = 2.76, bookD = 0.27;
-const coverGeo = new THREE.BoxGeometry(bookW, bookH, .075);
-const pageGeo = new THREE.BoxGeometry(bookW-.13, bookH-.13, bookD-.07);
+function makeCoverGeometry() {
+  const shape = new THREE.Shape();
+  const w=bookW/2,h=bookH/2,r=.075;
+  shape.moveTo(-w+r,-h);shape.lineTo(w-r,-h);shape.quadraticCurveTo(w,-h,w,-h+r);
+  shape.lineTo(w,h-r);shape.quadraticCurveTo(w,h,w-r,h);shape.lineTo(-w+r,h);
+  shape.quadraticCurveTo(-w,h,-w,h-r);shape.lineTo(-w,-h+r);shape.quadraticCurveTo(-w,-h,-w+r,-h);
+  const geometry=new THREE.ExtrudeGeometry(shape,{depth:.055,bevelEnabled:true,bevelSegments:3,steps:1,bevelSize:.022,bevelThickness:.018,curveSegments:5});
+  geometry.translate(0,0,-.0275);
+  return geometry;
+}
+const coverGeo = makeCoverGeometry();
+const pageGeo = new THREE.BoxGeometry(bookW-.14, bookH-.14, bookD-.09);
 const coverFaceGeo = new THREE.PlaneGeometry(bookW-.045, bookH-.045);
 const ringGeo = new THREE.TorusGeometry(.125, .018, 8, 24);
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+
+function makePaperSurfaceMap() {
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#d4d4d4';ctx.fillRect(0,0,256,256);
+  for(let i=0;i<5200;i++){
+    const tone=170+Math.floor(Math.random()*72);ctx.fillStyle=`rgba(${tone},${tone},${tone},${.12+Math.random()*.32})`;
+    ctx.fillRect(Math.random()*256,Math.random()*256,.4+Math.random()*1.4,.5+Math.random()*2.2);
+  }
+  const texture=new THREE.CanvasTexture(canvas);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(3,4);return texture;
+}
+const paperSurfaceMap=makePaperSurfaceMap();
+
+function seededRandom(seed) {
+  let state=seed>>>0;
+  return ()=>{state=(state+0x6D2B79F5)|0;let t=state;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};
+}
+function scatterPositions(count) {
+  const random=seededRandom(20260319),positions=[],minDistance=2.65;
+  let tries=0;
+  while(positions.length<count&&tries<30000){tries++;
+    const candidate={x:(random()-.5)*21.5,y:(random()-.5)*12.1,z:(random()-.5)*2.4};
+    if(positions.every(p=>Math.hypot(p.x-candidate.x,p.y-candidate.y)>minDistance))positions.push(candidate);
+  }
+  // Deterministic fallback keeps all 27 positions available even after layout tuning.
+  while(positions.length<count){const i=positions.length,a=i*2.39996,r=1.25*Math.sqrt(i+1);positions.push({x:Math.cos(a)*r,y:Math.sin(a)*r*.58,z:(i%5-2)*.35});}
+  return positions;
+}
+const placements=scatterPositions(27);
 
 function makeCoverTexture(index) {
   const c = document.createElement('canvas'); c.width=512; c.height=700;
@@ -109,38 +135,40 @@ function makeCoverTexture(index) {
 
 for(let i=0;i<27;i++){
   const group=new THREE.Group();
-  const col=i%9,row=Math.floor(i/9);
-  group.position.set((col-4)*2.72,(1-row)*3.28,(col%3)*.12);
-  group.rotation.set((row-1)*-.035,(col%2?-.045:.035),((col+row)%3-1)*.035);
-  group.userData={index:i,phase:i*1.31,baseX:group.position.x,baseY:group.position.y,baseZ:group.position.z,selected:false};
+  const random=seededRandom(9100+i*71),position=placements[i];
+  group.position.set(position.x,position.y,position.z);
+  group.rotation.set((random()-.5)*.22,(random()-.5)*.3,(random()-.5)*.24);
+  const initialScale=.82+random()*.25;group.scale.setScalar(initialScale);
+  group.userData={index:i,phase:random()*Math.PI*2,baseX:group.position.x,baseY:group.position.y,baseZ:group.position.z,baseScale:initialScale,baseRx:group.rotation.x,baseRy:group.rotation.y,baseRz:group.rotation.z,selected:false};
 
-  const coverMat=new THREE.MeshStandardMaterial({color:'#1b1b1b',roughness:.86,metalness:.04});
-  const cover=new THREE.Mesh(coverGeo,coverMat);group.add(cover);
-  const pageMat=new THREE.MeshStandardMaterial({color:'#e8e2d7',roughness:.98});
-  const pages=new THREE.Mesh(pageGeo,pageMat);pages.position.set(.025,0,.045);group.add(pages);
-  // Fine page edges make the open side read as a thick paper stack.
+  const coverMat=new THREE.MeshStandardMaterial({color:'#1b1b1b',roughness:.94,metalness:.015,roughnessMap:paperSurfaceMap,bumpMap:paperSurfaceMap,bumpScale:.012});
+  const frontCover=new THREE.Mesh(coverGeo,coverMat);frontCover.position.z=.125;group.add(frontCover);
+  const backCover=new THREE.Mesh(coverGeo,coverMat);backCover.position.z=-.125;group.add(backCover);
+  const pageMat=new THREE.MeshStandardMaterial({color:'#e8e2d7',roughness:.98,roughnessMap:paperSurfaceMap,bumpMap:paperSurfaceMap,bumpScale:.008});
+  const pages=new THREE.Mesh(pageGeo,pageMat);pages.position.set(.025,0,0);group.add(pages);
+  // Thin sheet edges show along the exposed page block when the book turns.
   const edgeMat=new THREE.MeshStandardMaterial({color:'#d6cfc2',roughness:1});
-  for(let line=0;line<9;line++){
-    const y=-bookH*.37+line*.105;
-    const edge=new THREE.Mesh(new THREE.BoxGeometry(.014,bookH*.72,.006),edgeMat);
-    edge.position.set(bookW*.445,y,.062);group.add(edge);
+  for(let line=0;line<15;line++){
+    const y=-bookH*.43+line*(bookH*.86/14);
+    const edge=new THREE.Mesh(new THREE.BoxGeometry(.008,.007,bookD-.1),edgeMat);
+    edge.position.set(bookW*.46,y,0);group.add(edge);
   }
   const face=new THREE.Mesh(coverFaceGeo,new THREE.MeshStandardMaterial({map:makeCoverTexture(i),roughness:.93,metalness:.015}));
-  face.position.z=bookD/2+.009;group.add(face);
+  face.position.z=.174;group.add(face);
   // Black coated wire loops along the left binding edge.
   const wireMat=new THREE.MeshStandardMaterial({color:'#111111',roughness:.28,metalness:.72});
   for(let loop=0;loop<11;loop++){
     const wire=new THREE.Mesh(ringGeo,wireMat);
-    wire.position.set(-bookW/2-.055,-bookH*.43+loop*(bookH*.086),bookD/2+.015);
+    wire.position.set(-bookW/2-.055,-bookH*.43+loop*(bookH*.086),.18);
     wire.scale.y=1.35;group.add(wire);
   }
   // Small pressed holes at the binding make the wire feel threaded through the cover.
   const holeMat=new THREE.MeshStandardMaterial({color:'#080808',roughness:.9});
   for(let hole=0;hole<11;hole++){
     const punch=new THREE.Mesh(new THREE.CircleGeometry(.032,12),holeMat);
-    punch.position.set(-bookW/2+.055,-bookH*.43+hole*(bookH*.086),bookD/2+.011);group.add(punch);
+    punch.position.set(-bookW/2+.055,-bookH*.43+hole*(bookH*.086),.178);group.add(punch);
   }
-  group.traverse(obj=>{if(obj.isMesh){obj.userData.bookIndex=i;pickTargets.push(obj);}});
+  group.traverse(obj=>{if(obj.isMesh){obj.userData.bookIndex=i;obj.castShadow=true;obj.receiveShadow=true;pickTargets.push(obj);}});
   scene.add(group);books.push(group);
 }
 
@@ -169,19 +197,25 @@ sceneRoot.addEventListener('pointerup',e=>{
 });
 sceneRoot.addEventListener('pointercancel',()=>{dragging=false;});
 
-function resize(){const w=sceneRoot.clientWidth,h=sceneRoot.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.z=Math.max(29,29*(1.6/Math.max(.45,w/h)));camera.updateProjectionMatrix();}
+function resize(){
+  const w=sceneRoot.clientWidth,h=sceneRoot.clientHeight;
+  renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.z=Math.max(29,29*(1.6/Math.max(.45,w/h)));camera.updateProjectionMatrix();
+  const distance=camera.position.z-Math.min(backdrop.position.z,0);
+  const viewHeight=2*distance*Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+  backdrop.scale.set(viewHeight*camera.aspect*1.12,viewHeight*1.12,1);
+}
 window.addEventListener('resize',resize);resize();
 function animate(time){requestAnimationFrame(animate);const t=time*.001;
   scene.position.x=THREE.MathUtils.damp(scene.position.x,targetX,5,.016);scene.position.y=THREE.MathUtils.damp(scene.position.y,targetY,5,.016);
   books.forEach(book=>{
     const p=book.userData.phase,selected=book.userData.selected?1:0;
-    book.position.x=book.userData.baseX+Math.sin(t*.19+p)*.14;
-    book.position.y=book.userData.baseY+Math.sin(t*.34+p)*.17;
-    book.position.z=book.userData.baseZ+Math.cos(t*.22+p)*.12;
-    book.rotation.x=Math.sin(t*.18+p)*.025;
-    book.rotation.y=Math.cos(t*.16+p)*.035;
-    book.rotation.z=Math.sin(t*.24+p)*.035;
-    const scale=selected?1.1:1;book.scale.setScalar(THREE.MathUtils.damp(book.scale.x,scale,7,.016));
+    book.position.x=book.userData.baseX+Math.sin(t*.17+p)*.2;
+    book.position.y=book.userData.baseY+Math.sin(t*.29+p)*.24;
+    book.position.z=book.userData.baseZ+Math.cos(t*.2+p)*.18;
+    book.rotation.x=book.userData.baseRx+Math.sin(t*.15+p)*.035;
+    book.rotation.y=book.userData.baseRy+Math.cos(t*.13+p)*.05;
+    book.rotation.z=book.userData.baseRz+Math.sin(t*.19+p)*.035;
+    const scale=book.userData.baseScale*(selected?1.1:1);book.scale.setScalar(THREE.MathUtils.damp(book.scale.x,scale,7,.016));
   });
   renderer.render(scene,camera);
 }
