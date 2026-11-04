@@ -15,12 +15,12 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 sceneRoot.appendChild(renderer.domElement);
 
-// Photographic paper backdrop, stored locally so GitHub Pages needs no runtime image service.
-scene.background = new THREE.Color('#eeede9');
+// Black paper backdrop with a real, locally stored wrinkle texture.
+scene.background = new THREE.Color('#080808');
 const paperTexture = new THREE.TextureLoader().load('./assets/paper-crumpled-unsplash.jpg');
 paperTexture.colorSpace = THREE.SRGBColorSpace;
 paperTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({map:paperTexture,roughness:1,metalness:0}));
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({map:paperTexture,color:'#171513',roughness:1,metalness:0,bumpMap:paperTexture,bumpScale:.035}));
 backdrop.position.z = -5;
 backdrop.receiveShadow = true;
 scene.add(backdrop);
@@ -29,7 +29,7 @@ scene.add(backdrop);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
 pmrem.dispose();
-scene.add(new THREE.HemisphereLight(0xf7f4ee, 0x77736c, 1.05));
+scene.add(new THREE.HemisphereLight(0xf7f4ee, 0x171513, .8));
 const keyLight = new THREE.DirectionalLight(0xfff8ee, 3.2);
 keyLight.position.set(-8, 11, 13); keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
@@ -93,18 +93,12 @@ function seededRandom(seed) {
   let state=seed>>>0;
   return ()=>{state=(state+0x6D2B79F5)|0;let t=state;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};
 }
-function scatterPositions(count) {
-  const random=seededRandom(20260319),positions=[],minDistance=2.65;
-  let tries=0;
-  while(positions.length<count&&tries<30000){tries++;
-    const candidate={x:(random()-.5)*21.5,y:(random()-.5)*12.1,z:(random()-.5)*2.4};
-    if(positions.every(p=>Math.hypot(p.x-candidate.x,p.y-candidate.y)>minDistance))positions.push(candidate);
-  }
-  // Deterministic fallback keeps all 27 positions available even after layout tuning.
-  while(positions.length<count){const i=positions.length,a=i*2.39996,r=1.25*Math.sqrt(i+1);positions.push({x:Math.cos(a)*r,y:Math.sin(a)*r*.58,z:(i%5-2)*.35});}
-  return positions;
+function viewHeightAtStart() {
+  const aspect=(sceneRoot.clientWidth||window.innerWidth)/(sceneRoot.clientHeight||window.innerHeight);
+  camera.aspect=aspect;camera.position.z=Math.max(29,29*(1.6/Math.max(.45,aspect)));
+  return 2*camera.position.z*Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
 }
-const placements=scatterPositions(27);
+const spinePalette=['#d15a46','#d6aa45','#315665','#b95d79','#ded5c2','#253449','#cf8247','#7d8a72','#e4c9bd','#505867','#bf9a62','#8f493c'];
 
 function makeCoverTexture(index) {
   const c = document.createElement('canvas'); c.width=512; c.height=700;
@@ -133,13 +127,35 @@ function makeCoverTexture(index) {
   const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;
 }
 
+function makeSpineTexture(index,heightScale) {
+  const c=document.createElement('canvas');c.width=256;c.height=2048;
+  const ctx=c.getContext('2d'),base=spinePalette[index%spinePalette.length];
+  ctx.fillStyle=base;ctx.fillRect(0,0,c.width,c.height);
+  const gradient=ctx.createLinearGradient(0,0,c.width,0);
+  gradient.addColorStop(0,'rgba(0,0,0,.32)');gradient.addColorStop(.17,'rgba(0,0,0,.04)');gradient.addColorStop(.83,'rgba(255,255,255,.08)');gradient.addColorStop(1,'rgba(0,0,0,.22)');
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,c.width,c.height);
+  for(let i=0;i<6500;i++){
+    const pale=i%2===0;ctx.fillStyle=pale?`rgba(255,255,255,${Math.random()*.11})`:`rgba(24,20,17,${Math.random()*.09})`;
+    ctx.fillRect(Math.random()*c.width,Math.random()*c.height,.5+Math.random()*1.4,.5+Math.random()*3);
+  }
+  const light=[1,4,8,10].includes(index%spinePalette.length),ink=light?'#292722':'#f2eee5';
+  ctx.fillStyle=ink;ctx.globalAlpha=.68;ctx.fillRect(24,50,2,c.height-100);ctx.globalAlpha=1;
+  ctx.save();ctx.translate(c.width/2,c.height/2);ctx.rotate(-Math.PI/2);
+  const size=Math.max(28,Math.min(88,220/heightScale));
+  ctx.fillStyle=ink;ctx.font=`500 ${size}px "Noto Sans TC",serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(titles[index],0,0,850);
+  ctx.font=`500 ${Math.max(20,size*.43)}px "DM Mono",monospace`;ctx.globalAlpha=.83;
+  ctx.fillText(`PAPER ARCHIVE  /  ${String(index+1).padStart(2,'0')}`,0,Math.min(240,size*1.65),750);
+  ctx.restore();
+  const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;return texture;
+}
+
 for(let i=0;i<27;i++){
   const group=new THREE.Group();
-  const random=seededRandom(9100+i*71),position=placements[i];
-  group.position.set(position.x,position.y,position.z);
-  group.rotation.set((random()-.5)*.22,(random()-.5)*.3,(random()-.5)*.24);
-  const initialScale=.82+random()*.25;group.scale.setScalar(initialScale);
-  group.userData={index:i,phase:random()*Math.PI*2,baseX:group.position.x,baseY:group.position.y,baseZ:group.position.z,baseScale:initialScale,baseRx:group.rotation.x,baseRy:group.rotation.y,baseRz:group.rotation.z,selected:false};
+  const random=seededRandom(9100+i*71),heightFactor=.42+random()*.28,widthUnits=.72+random()*.62;
+  group.position.set(0,0,0);
+  group.rotation.set((random()-.5)*.025,Math.PI/2+(random()-.5)*.045,(random()-.5)*.012);
+  group.userData={index:i,phase:random()*Math.PI*2,heightFactor,widthUnits,baseX:0,baseY:0,baseZ:(random()-.5)*.12,baseRx:group.rotation.x,baseRy:group.rotation.y,baseRz:group.rotation.z,baseScale:1,selected:false};
 
   const coverMat=new THREE.MeshStandardMaterial({color:'#1b1b1b',roughness:.94,metalness:.015,roughnessMap:paperSurfaceMap,bumpMap:paperSurfaceMap,bumpScale:.012});
   const frontCover=new THREE.Mesh(coverGeo,coverMat);frontCover.position.z=.125;group.add(frontCover);
@@ -155,18 +171,21 @@ for(let i=0;i<27;i++){
   }
   const face=new THREE.Mesh(coverFaceGeo,new THREE.MeshStandardMaterial({map:makeCoverTexture(i),roughness:.93,metalness:.015}));
   face.position.z=.174;group.add(face);
-  // Black coated wire loops along the left binding edge.
+  // A printed, textured spine faces the viewer when each book stands on the shelf.
+  const spineFace=new THREE.Mesh(new THREE.PlaneGeometry(bookD+.08,bookH-.05),new THREE.MeshStandardMaterial({map:makeSpineTexture(i,viewHeightAtStart()*heightFactor/bookH),roughness:.9,roughnessMap:paperSurfaceMap,bumpMap:paperSurfaceMap,bumpScale:.009}));
+  spineFace.rotation.y=-Math.PI/2;spineFace.position.set(-bookW/2-.014,0,0);group.add(spineFace);
+  // Black coated wire loops remain visible along one edge of the sketchbook spine.
   const wireMat=new THREE.MeshStandardMaterial({color:'#111111',roughness:.28,metalness:.72});
   for(let loop=0;loop<11;loop++){
     const wire=new THREE.Mesh(ringGeo,wireMat);
     wire.position.set(-bookW/2-.055,-bookH*.43+loop*(bookH*.086),.18);
-    wire.scale.y=1.35;group.add(wire);
+    wire.rotation.y=-Math.PI/2;wire.scale.y=1.35;group.add(wire);
   }
   // Small pressed holes at the binding make the wire feel threaded through the cover.
   const holeMat=new THREE.MeshStandardMaterial({color:'#080808',roughness:.9});
   for(let hole=0;hole<11;hole++){
     const punch=new THREE.Mesh(new THREE.CircleGeometry(.032,12),holeMat);
-    punch.position.set(-bookW/2+.055,-bookH*.43+hole*(bookH*.086),.178);group.add(punch);
+    punch.position.set(-bookW/2+.055,-bookH*.43+hole*(bookH*.086),.178);punch.rotation.y=-Math.PI/2;group.add(punch);
   }
   group.traverse(obj=>{if(obj.isMesh){obj.userData.bookIndex=i;obj.castShadow=true;obj.receiveShadow=true;pickTargets.push(obj);}});
   scene.add(group);books.push(group);
@@ -203,19 +222,39 @@ function resize(){
   const distance=camera.position.z-Math.min(backdrop.position.z,0);
   const viewHeight=2*distance*Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
   backdrop.scale.set(viewHeight*camera.aspect*1.12,viewHeight*1.12,1);
+  const shelfHeight=2*camera.position.z*Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+  const shelfWidth=shelfHeight*camera.aspect,gapUnits=.16;
+  const unitScale=shelfWidth*.985/(books.reduce((sum,book)=>sum+book.userData.widthUnits,0)+(books.length-1)*gapUnits);
+  let cursor=-shelfWidth*.4925;
+  const floorY=-shelfHeight*.5+shelfHeight*.045;
+  books.forEach(book=>{
+    const spineWidth=book.userData.widthUnits*unitScale;
+    const height=shelfHeight*book.userData.heightFactor;
+    const scaleY=height/bookH,scaleZ=spineWidth/(bookD+.09);
+    book.scale.set(1,scaleY,scaleZ);
+    book.userData.baseScaleY=scaleY;book.userData.baseScaleZ=scaleZ;
+    book.position.x=cursor+spineWidth/2;book.position.y=floorY+height/2;book.position.z=book.userData.baseZ;
+    book.userData.baseX=book.position.x;book.userData.baseY=book.position.y;
+    cursor+=spineWidth+gapUnits*unitScale;
+  });
+  keyLight.shadow.camera.left=-shelfWidth*.6;keyLight.shadow.camera.right=shelfWidth*.6;
+  keyLight.shadow.camera.top=shelfHeight*.8;keyLight.shadow.camera.bottom=-shelfHeight*.55;keyLight.shadow.camera.updateProjectionMatrix();
 }
 window.addEventListener('resize',resize);resize();
 function animate(time){requestAnimationFrame(animate);const t=time*.001;
   scene.position.x=THREE.MathUtils.damp(scene.position.x,targetX,5,.016);scene.position.y=THREE.MathUtils.damp(scene.position.y,targetY,5,.016);
   books.forEach(book=>{
     const p=book.userData.phase,selected=book.userData.selected?1:0;
-    book.position.x=book.userData.baseX+Math.sin(t*.17+p)*.2;
-    book.position.y=book.userData.baseY+Math.sin(t*.29+p)*.24;
-    book.position.z=book.userData.baseZ+Math.cos(t*.2+p)*.18;
-    book.rotation.x=book.userData.baseRx+Math.sin(t*.15+p)*.035;
-    book.rotation.y=book.userData.baseRy+Math.cos(t*.13+p)*.05;
-    book.rotation.z=book.userData.baseRz+Math.sin(t*.19+p)*.035;
-    const scale=book.userData.baseScale*(selected?1.1:1);book.scale.setScalar(THREE.MathUtils.damp(book.scale.x,scale,7,.016));
+    book.position.x=book.userData.baseX+Math.sin(t*.12+p)*.008;
+    book.position.y=book.userData.baseY+Math.sin(t*.22+p)*.018;
+    book.position.z=book.userData.baseZ+Math.cos(t*.16+p)*.025;
+    book.rotation.x=book.userData.baseRx+Math.sin(t*.12+p)*.006;
+    book.rotation.y=book.userData.baseRy+Math.cos(t*.1+p)*.008;
+    book.rotation.z=book.userData.baseRz+Math.sin(t*.14+p)*.008;
+    const boost=selected?1.035:1;
+    book.scale.x=THREE.MathUtils.damp(book.scale.x,boost,7,.016);
+    book.scale.y=THREE.MathUtils.damp(book.scale.y,book.userData.baseScaleY*boost,7,.016);
+    book.scale.z=THREE.MathUtils.damp(book.scale.z,book.userData.baseScaleZ*boost,7,.016);
   });
   renderer.render(scene,camera);
 }

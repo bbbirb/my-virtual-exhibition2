@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f6f1">
-  <meta name="description" content="一座收藏二十七本漂浮素描簿的線上插畫圖書館。">
-  <title>紙間 — 線上插畫圖書館</title>
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="紙間書架：二十七本素描簿與插畫故事的線上圖書館。">
+  <title>紙間書架 — 線上插畫圖書館</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,29 +16,31 @@
   <script type="module" src="./scripts/main.js"></script>
 </head>
 <body>
-  <main class="gallery" aria-label="紙間插畫圖書館展間">
+  <main class="gallery" aria-label="紙間插畫圖書館書架">
     <header class="topbar">
-      <a class="brand" href="./" aria-label="紙間首頁"><span class="brand-mark">紙</span><span>紙間 <small>ILLUSTRATION LIBRARY</small></span></a>
-      <div class="edition">VIRTUAL ROOM <span>／</span> 001</div>
-      <button class="help-toggle" id="help-toggle" aria-expanded="false" aria-controls="help-card">操作指南 <span>＋</span></button>
+      <a class="brand" href="./" aria-label="紙間首頁"><span class="brand-name">紙間書架 <small>SKETCHBOOK ARCHIVE</small></span></a>
+      <div class="edition">27 VOLUMES <span>／</span> OPEN ARCHIVE</div>
+      <button class="help-toggle" id="help-toggle" aria-label="開啟操作指南" aria-expanded="false" aria-controls="help-card">
+        <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M4 5.5 12 4v18l-8 1.5zM14 4l9 1.5v18L14 22zM8 9l2.8-.5M18 9l2.5.5M18 13l2.5.5"/></svg>
+      </button>
     </header>
 
     <section class="intro" aria-label="展間介紹">
-      <p class="eyebrow">A SMALL LIBRARY IN THE CLOUD</p>
-      <h1>把靈感，<span>翻開來。</span></h1>
-      <p class="intro-copy">二十七本還在呼吸的素描簿，等你靠近。</p>
+      <p class="eyebrow">A SMALL LIBRARY OF BIG IDEAS</p>
+      <h1>每一本，<span>都藏著一個世界。</span></h1>
+      <p class="intro-copy">二十七本素描簿，二十七段等待翻閱的故事。</p>
     </section>
 
-    <div class="room-label"><span class="room-dot"></span> THE FLOATING ARCHIVE <span class="room-count">27 VOLUMES</span></div>
-    <div id="scene" class="scene" aria-label="漂浮素描簿展間。拖曳移動，點擊素描簿查看介紹。">
+    <div class="room-label"><span class="room-dot"></span> THE SKETCHBOOK SHELF <span class="room-count">01 — 27</span></div>
+    <div id="scene" class="scene" aria-label="素描簿書架。按住滑鼠左鍵拖曳瀏覽，點擊書本查看作品介紹。">
       <div class="loading" id="loading">正在打開圖書館…</div>
     </div>
     <div class="hand-note note-left" aria-hidden="true">慢慢逛，<br>每本都有故事。</div>
     <div class="hand-arrow" aria-hidden="true">↗</div>
 
     <footer class="bottom-bar">
-      <div class="legend"><span class="legend-key">01—27</span><span>漂浮素描簿</span></div>
-      <div class="drag-hint"><span class="mouse-icon">↔</span> 按住左鍵拖曳空間</div>
+      <div class="legend"><span class="legend-key">01—27</span><span>素描簿收藏</span></div>
+      <div class="drag-hint"><span class="mouse-icon">↔</span> 按住左鍵拖曳瀏覽・點擊書本閱讀</div>
       <div class="footer-note">AN OPEN SKETCHBOOK, ALWAYS.</div>
     </footer>
 
